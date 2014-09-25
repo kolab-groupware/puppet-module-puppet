@@ -1,0 +1,141 @@
+# Managed with puppet
+
+<VirtualHost *:80>
+    ServerAdmin sysadmin-puppet@<%= @domain %>
+    ServerName puppet.<%= @domain %>
+
+    ErrorLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-error_log -f -l /var/log/httpd/puppet.<%= @domain -%>-error_log.%Y-%m-%d 86400"
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-access_log -f -l /var/log/httpd/puppet.<%= @domain -%>-access_log.%Y-%m-%d 86400" combined
+
+    RewriteEngine On
+    RewriteRule ^/(.*)$ https://puppet.<%= @domain -%>/$1 [R,L]
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerAdmin sysadmin-main@<%= @domain %>
+    ServerName puppet.<%= @domain %>
+
+    ErrorLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-error_log -f -l /var/log/httpd/puppet.<%= @domain -%>-error_log.%Y-%m-%d 86400"
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-access_log -f -l /var/log/httpd/puppet.<%= @domain -%>-access_log.%Y-%m-%d 86400" combined
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-ssl_log -f -l /var/log/httpd/puppet.<%= @domain -%>-ssl_log.%Y-%m-%d 86400" "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b"
+
+    # you may want to tune these settings
+    PassengerHighPerformance on
+    PassengerMaxPoolSize 12
+    PassengerPoolIdleTime 1500
+    PassengerMaxRequests 10000
+    PassengerStatThrottleRate 120
+
+    SSLEngine on
+    SSLProtocol -ALL +SSLv3 +TLSv1
+    SSLCipherSuite ALL:!ADH:RC4+RSA:+HIGH:+MEDIUM:-LOW:-SSLv2:-EXP
+
+    SSLCertificateFile      /var/lib/puppet/ssl/certs/puppet.<%= @domain -%>.pem
+    SSLCertificateKeyFile   /var/lib/puppet/ssl/private_keys/puppet.<%= @domain -%>.pem
+    SSLCertificateChainFile /var/lib/puppet/ssl/ca/ca_crt.pem
+    SSLCACertificateFile    /var/lib/puppet/ssl/ca/ca_crt.pem
+    SSLCARevocationFile     /var/lib/puppet/ssl/ca/ca_crl.pem
+    SSLCARevocationCheck    chain
+
+    SSLVerifyClient optional
+    SSLVerifyDepth  1
+    SSLOptions +StdEnvVars
+
+    DocumentRoot /usr/share/puppet-dashboard/public
+
+    <Directory   /usr/share/puppet-dashboard/public>
+        Options None
+        AllowOverride None
+        <ifModule mod_authz_core.c>
+            Require all granted
+        </ifModule>
+        <ifModule !mod_authz_core.c>
+            Order Allow,Deny
+            Allow from All
+        </ifModule>
+    </Directory>
+    <Location / >
+        <ifModule mod_authz_core.c>
+            Require all granted
+        </ifModule>
+        <ifModule !mod_authz_core.c>
+            Order Allow,Deny
+            Allow from All
+        </ifModule>
+        # Enable this to require client-side certificates for Dashboard connections
+        #SSLVerifyClient require
+    </Location>
+
+</VirtualHost>
+
+<VirtualHost *:3000>
+    ServerAdmin sysadmin-main@<%= @domain %>
+    ServerName puppet.<%= @domain %>
+
+    ErrorLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-error_log -f -l /var/log/httpd/puppet.<%= @domain -%>-error_log.%Y-%m-%d 86400"
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-access_log -f -l /var/log/httpd/puppet.<%= @domain -%>-access_log.%Y-%m-%d 86400" combined
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-ssl_log -f -l /var/log/httpd/puppet.<%= @domain -%>-ssl_log.%Y-%m-%d 86400" "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b"
+
+    DocumentRoot /usr/share/puppet-dashboard/public/
+
+    # you may want to tune these settings
+    PassengerHighPerformance on
+    PassengerMaxPoolSize 12
+    PassengerPoolIdleTime 1500
+    PassengerStatThrottleRate 120
+
+    <Directory /usr/share/puppet-dashboard/public/>
+        Options None
+        <ifModule mod_authz_core.c>
+            Require all granted
+        </ifModule>
+        <ifModule !mod_authz_core.c>
+            Order Allow,Deny
+            Allow from All
+        </ifModule>
+    </Directory>
+
+</VirtualHost>
+
+<VirtualHost *:8140>
+    ServerAdmin sysadmin-main@<%= @domain %>
+    ServerName puppet.<%= @domain %>
+
+    ErrorLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-error_log -f -l /var/log/httpd/puppet.<%= @domain -%>-error_log.%Y-%m-%d 86400"
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-access_log -f -l /var/log/httpd/puppet.<%= @domain -%>-access_log.%Y-%m-%d 86400" combined
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-ssl_log -f -l /var/log/httpd/puppet.<%= @domain -%>-ssl_log.%Y-%m-%d 86400" "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b"
+
+    DocumentRoot /usr/share/puppet/rack/puppetmasterd/public/
+
+    SSLEngine on
+    SSLCipherSuite SSLv2:-LOW:-EXPORT:RC4+RSA
+    SSLCertificateFile      /var/lib/puppet/ssl/certs/puppet.<%= @domain -%>.pem
+    SSLCertificateKeyFile   /var/lib/puppet/ssl/private_keys/puppet.<%= @domain -%>.pem
+    SSLCertificateChainFile /var/lib/puppet/ssl/ca/ca_crt.pem
+    SSLCACertificateFile    /var/lib/puppet/ssl/ca/ca_crt.pem
+    SSLCARevocationFile     /var/lib/puppet/ssl/ca/ca_crl.pem
+    SSLCARevocationCheck    chain
+
+    SSLVerifyClient optional
+    SSLVerifyDepth  1
+    SSLOptions +StdEnvVars
+
+    # The following client headers allow the same configuration to work with Pound.
+    RequestHeader set X-SSL-Subject %{SSL_CLIENT_S_DN}e
+    RequestHeader set X-Client-DN %{SSL_CLIENT_S_DN}e
+    RequestHeader set X-Client-Verify %{SSL_CLIENT_VERIFY}e
+
+    <Directory /usr/share/puppet/rack/puppetmasterd/>
+        Options None
+        AllowOverride None
+        <ifModule mod_authz_core.c>
+            Require all granted
+        </ifModule>
+        <ifModule !mod_authz_core.c>
+            Order Allow,Deny
+            Allow from All
+        </ifModule>
+    </Directory>
+
+</VirtualHost>
+

@@ -1,0 +1,18 @@
+# Managed with puppet
+<%
+    h, *d = @servername.split('.')
+    server = "puppet." + d.join('.')
+-%>
+
+# The puppetmaster server
+PUPPET_SERVER=<%= server %>
+
+# If you wish to specify the port to connect to do so here
+# Do not use or puppet will fail to start
+#PUPPET_PORT=8140
+
+# Where to log to. Specify syslog to send log messages to the system log.
+PUPPET_LOG=/var/log/puppet/puppet.log
+
+# You may specify other parameters to the puppet client here
+PUPPET_EXTRA_OPTS="--waitforcert=300 --fqdn=<%= @fqdn -%>"

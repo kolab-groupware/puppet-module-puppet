@@ -1,0 +1,117 @@
+#!/bin/bash
+
+skip_modules=0
+
+function usage() {
+    echo -e "$0 [--help]"
+    echo -e "$0 [--domain <domain>] [--environment <environment>] [--skip-modules]"
+    echo ""
+    echo -e "Update the puppet repositories"
+    echo -e "--help)\t\tThis text"
+    echo -e "--domain)\tUpdate only the repository for \$domain"
+    echo -e "--environment)\tUpdate only the repositories for \$environment"
+    echo -e "--skip-modules)\tDo not update the puppetmanaged modules"
+    exit 0
+}
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        --domain)
+            domain="$2"
+            shift; shift
+        ;;
+
+        --environment)
+            environment="$2"
+            shift; shift
+        ;;
+
+        --skip-modules)
+            skip_modules=1
+            shift
+        ;;
+
+        *)
+            usage
+            exit
+        ;;
+
+    esac
+done
+
+mgmt_domain=$(hostname -d)
+domains_list=$(ls -1 /var/lib/puppet/private/)
+
+domains=${domain:-${domains_list}}
+environments=${environment:-"development testing production"}
+
+if [[ "$domains" =~ "$mgmt_domain" ]] ; then
+    echo "=== First of all management domain ==="
+    for environment in $(echo $environments); do
+        echo "--- $mgmt_domain $environment ---"
+        cd /var/lib/puppet/private/${mgmt_domain}/${environment} && \
+            git fetch origin && \
+            git reset --hard origin/${environment} && \
+            git clean -d -f -x && \
+            ( [ -d puppet/manifests/classes/ ] && \
+                rsync -aqHvz --delete puppet/manifests/classes/ /var/lib/puppet/environments/${environment}/manifests/classes/ )
+            ( [ -d puppet/manifests/groups/ ] && \
+                rsync -aqHvz --delete puppet/manifests/groups/ /var/lib/puppet/environments/${environment}/manifests/groups/ )
+            ( [ -d puppet/manifests/nodes/ ] && \
+                rsync -aqHvz --delete puppet/manifests/nodes/ /var/lib/puppet/environments/${environment}/manifests/nodes/ )
+            ( [ -d puppet/manifests/utils/ ] && \
+                rsync -aqHvz --delete puppet/manifests/utils/ /var/lib/puppet/environments/${environment}/manifests/utils/ )
+    done
+
+    echo "--- Update sensitive repo for ${mgmt_domain} --"
+    [ -d "/var/lib/puppet/files/${mgmt_domain}/" ] && \
+        cd /var/lib/puppet/files/${mgmt_domain}/ && \
+            git fetch origin && \
+            git reset --hard origin/$(git branch -l | awk '{print $2}') && \
+            git clean -d -f -x
+else
+    echo "=== Skip management domain ==="
+fi
+
+echo "=== Domains "${domains}" except the management ==="
+for domain in $(echo ${domains//$mgmt_domain/}); do
+    for environment in $(echo $environments); do
+        echo "--- $domain $environment ---"
+        cd /var/lib/puppet/private/${domain}/${environment} && \
+            git fetch origin && \
+            git reset --hard origin/${environment} && \
+            git clean -d -f -x && \
+            ( [ ! -d /var/lib/puppet/environments/${environment}/manifests/domains/${domain} ] && \
+                mkdir -p /var/lib/puppet/environments/${environment}/manifests/domains/${domain} )
+            ( [ -d puppet/manifests/classes/ ] && \
+                rsync -aqHvz --delete puppet/manifests/classes/ /var/lib/puppet/environments/${environment}/manifests/domains/${domain}/classes/ )
+            ( [ -d puppet/manifests/groups/ ] && \
+                rsync -aqHvz --delete puppet/manifests/groups/ /var/lib/puppet/environments/${environment}/manifests/domains/${domain}/groups/ )
+            ( [ -d puppet/manifests/nodes/ ] && \
+                rsync -aqHvz --delete puppet/manifests/nodes/ /var/lib/puppet/environments/${environment}/manifests/domains/${domain}/nodes/ )
+            ( [ -d puppet/manifests/utils/ ] && \
+                rsync -aqHvz --delete puppet/manifests/utils/ /var/lib/puppet/environments/${environment}/manifests/domains/${domain}/utils/ )
+    done
+
+    echo "--- Update sensitive repo for ${domain} ---"
+    [ -d "/var/lib/puppet/files/${domain}/" ] && \
+        cd /var/lib/puppet/files/${domain}/ && \
+            git fetch origin && \
+            git reset --hard origin/$(git branch -l | awk '{print $2}') && \
+            git clean -d -f -x
+done
+
+if [ $skip_modules = 0 ] ; then
+    for environment in $(echo $environments); do
+        for module in `find /var/lib/puppet/environments/${environment}/modules/ -mindepth 1 -maxdepth 1 -type d`; do
+            echo "$environment $module"
+            cd ${module} && \
+                git fetch origin && \
+                git reset --hard origin/${environment} && \
+                git clean -d -f -x
+        done
+    done
+else
+    echo "=== Skipping modules ==="
+fi
+

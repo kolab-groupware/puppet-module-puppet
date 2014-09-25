@@ -1,0 +1,87 @@
+<%
+    puppet_servers = scope.function_nodes_with_class(['puppet::server']).sort.uniq
+
+    if puppet_servers.include?(@fqdn) or classes.include?("puppet::server") then
+        puppet_type = "server"
+    else
+        puppet_type = "client"
+    end
+
+    h, *d = @servername.split('.')
+    server = "puppet." + d.join('.')
+-%>
+
+[main]
+    autoflush = true
+    environments = production,testing,development
+    logdir = /var/log/puppet
+    report = true
+    rundir = /var/run/puppet
+    ssldir = /var/lib/puppet/ssl
+    tagmap = /etc/puppet/tagmail.conf
+    vardir = /var/lib/puppet
+
+    configtimeout = 600
+
+    pluginsync = true
+    pluginsource = puppet://$server/plugins
+    plugindest = $vardir/lib
+    factpath = $vardir/lib/facter
+
+    environmentpath = $vardir/environments
+
+<% if puppet_type == "server" then -%>
+[master]
+    ca = true
+    certname = puppet.<%= @domain %>
+    dns_alt_names = puppet
+    ssl_client_header = SSL_CLIENT_S_DN
+    ssl_client_verify_header = SSL_CLIENT_VERIFY
+    node_terminus = exec
+    external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://puppet.<%= @domain -%>:3000 /usr/share/puppet-dashboard/bin/external_node
+    reporturl = http://puppet.<%= @domain -%>:3000/reports/upload
+    autosign = false
+    always_cache_features = true
+    reports = http,store,puppetdb
+    environmentpath = $vardir/environments/
+    basemodulepath = /etc/puppet/modules:/usr/share/puppet/modules:/var/lib/puppet/modules
+    parser = future
+    storeconfigs = true
+    storeconfigs_backend = puppetdb
+
+<% elsif puppet_type == "satellite" then -%>
+[master]
+    ca = true
+    certname = <%= @fqdn %>
+    dns_alt_names = puppet:puppet.<%= @domain -%>:<%= @fqdn -%>:<%= hostname %>
+    ssl_client_header = SSL_CLIENT_S_DN
+    ssl_client_verify_header = SSL_CLIENT_VERIFY
+    node_terminus = exec
+    external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://puppet.<%= @domain -%>:3000 /usr/share/puppet-dashboard/bin/external_node
+    reporturl = http://puppet.<%= @domain -%>:3000/reports/upload
+    autosign = false
+    always_cache_features = true
+    reports = http,store,puppetdb
+    environmentpath = $vardir/environments/
+    basemodulepath = /etc/puppet/modules:/usr/share/puppet/modules:/var/lib/puppet/modules
+    parser = future
+    storeconfigs = true
+    storeconfigs_backend = puppetdb
+<% end -%>
+
+[agent]
+    classfile = /var/lib/puppet/classes.txt
+    color = false
+    environment = <%= @environment %>
+    ignorecache = true
+    localconfig = /var/lib/puppet/localconfig
+    report = true
+    server = <%= server %>
+<% if @environment == "production" then -%>
+<% if @puppet_type == "server" then -%>
+<% else -%>
+    show_diff = true
+    diff_args = "-BbNaur"
+    noop = true
+<% end -%>
+<% end -%>

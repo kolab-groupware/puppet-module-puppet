@@ -1,0 +1,83 @@
+#!/bin/bash -l
+
+OPTIONS=""
+
+fast=0
+noop=0
+verbose=0
+debug=1
+
+while [ $# -gt 0 ]; do
+        case $1 in
+                --fast)
+                        fast=1
+                        shift
+                    ;;
+                --noop)
+                        noop=1
+                        shift
+                    ;;
+                --verbose)
+                        verbose=1
+                        debug=0
+                        shift
+                    ;;
+                *)
+                        OPTIONS="${OPTIONS} $1"
+                        shift
+                    ;;
+            esac
+    done
+
+if [ ${verbose} -eq 1 ]; then
+    OPTIONS="${OPTIONS} --verbose"
+elif [ ${debug} -eq 1 ]; then
+    OPTIONS="${OPTIONS} --debug"
+fi
+
+pv=$(puppet --version | cut -d'.' -f1)
+environment=$(puppet config print environment)
+
+if [ ${pv} -gt 2 ]; then
+    pgrep puppet >/dev/null 2>&1
+    [ $? -eq 0 ] && service puppet stop
+else
+    pgrep puppetd >/dev/null 2>&1
+    [ $? -eq 0 ] && service puppet stop
+fi
+
+if [ ${fast} -eq 0 ]; then
+    # Remove local status
+    rm -rf /var/lib/puppet/state/* >/dev/null 2>&1
+    rm -rf /var/lib/puppet/localconfig.yaml >/dev/null 2>&1
+fi
+
+if [ ${noop} -eq 0 ]; then
+    # Eliminate noop from /etc/puppet/puppet.conf
+    sed -i -r -e 's/noop\s*=\s*(true|1)/#noop = true/g' /etc/puppet/puppet.conf
+fi
+
+[ -f /etc/sysconfig/puppet ] && . /etc/sysconfig/puppet
+[ -f /etc/default/puppet ] && . /etc/default/puppet
+
+[ -z "${PUPPET_SERVER}" ] && PUPPET_SERVER_CMD="--server master.puppetmanaged.org" || PUPPET_SERVER_CMD="--server ${PUPPET_SERVER}"
+
+if [ ${pv} -gt 2 ]; then
+    puppet agent ${OPTIONS} --onetime --no-daemonize ${PUPPET_SERVER_CMD} ${PUPPET_EXTRA_OPTS}
+else
+    puppetd ${OPTIONS} --onetime --no-daemonize ${PUPPET_SERVER_CMD} ${PUPPET_EXTRA_OPTS}
+fi
+
+if [ ${environment} == "production" ]; then
+    # Restore noop in /etc/puppet/puppet.conf
+    sed -i -r -e 's/#noop\s*=\s*(true|1)/noop = true/g' /etc/puppet/puppet.conf
+fi
+
+# Ensure the service is started afterwards
+if [ ${pv} -gt 2 ]; then
+    pgrep puppet >/dev/null 2>&1
+    [ $? -ne 0 ] && service puppet start
+else
+    pgrep puppetd >/dev/null 2>&1
+    [ $? -ne 0 ] && service puppet start
+fi
