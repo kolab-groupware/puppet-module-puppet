@@ -85,15 +85,38 @@ class puppet::server inherits puppet::client {
             ]
     }
 
-    webserver::module::enable { [
-            "mod_authz_core",
-            "mod_slotmem_shm",
-            "mod_socache_shmcb",
-            "mod_unixd",
-            "mod_passenger",
-            "mod_ssl"
-        ]:
+    if (!defined(Webserver::Module::Enable["mod_authz_core"])) {
+        @webserver::module::enable { "mod_authz_core": }
     }
+
+    if (!defined(Webserver::Module::Enable["mod_slotmem_shm"])) {
+        @webserver::module::enable { "mod_slotmem_shm": }
+    }
+
+    if (!defined(Webserver::Module::Enable["mod_socache_shmcb"])) {
+        @webserver::module::enable { "mod_socache_shmcb": }
+    }
+        
+    if (!defined(Webserver::Module::Enable["mod_ssl"])) {
+        @webserver::module::enable { "mod_ssl": }
+    }
+
+    if (!defined(Webserver::Module::Enable["mod_unixd"])) {
+        @webserver::module::enable { "mod_unixd": }
+    }
+
+    if (!defined(Webserver::Module::Enable["mod_passenger"])) {
+        @webserver::module::enable { "mod_passenger": }
+    }
+
+    realize(
+            Webserver::Module::Enable["mod_authz_core"],
+            Webserver::Module::Enable["mod_slotmem_shm"],
+            Webserver::Module::Enable["mod_socache_shmcb"],
+            Webserver::Module::Enable["mod_ssl"],
+            Webserver::Module::Enable["mod_unixd"],
+            Webserver::Module::Enable["mod_passenger"]
+        )
 
     webserver::virtualhost { "puppet.${::domain}":
         certificate => false,
