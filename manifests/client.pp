@@ -1,6 +1,6 @@
 class puppet::client inherits puppet {
     cron { "puppet_service":
-        command => "/usr/bin/pgrep -x puppetd > /dev/null || /sbin/service puppet restart > /dev/null 2>&1",
+        command => "/usr/bin/pgrep -x '(puppet|puppetd)' > /dev/null || /sbin/service puppet restart > /dev/null 2>&1",
         user => "root",
         minute => "0",
         hour => [ 0,4,8,12,16,20 ]
