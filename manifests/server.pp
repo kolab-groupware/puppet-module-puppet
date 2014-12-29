@@ -18,7 +18,7 @@ class puppet::server inherits puppet::client {
         owner => "root",
         group => "root",
         mode => "644",
-        content => template("puppet/puppetdb.conf"),
+        content => template("puppet/puppetdb.conf.erb"),
         require => [
                 Package["puppet-server"],
                 Package["puppetdb"]
