@@ -78,7 +78,7 @@
     report = true
     server = <%= server %>
 <% if @environment == "production" then -%>
-<% if @puppet_type == "server" then -%>
+<% if puppet_type == "server" then -%>
 <% else -%>
     show_diff = true
     diff_args = "-BbNaur"
