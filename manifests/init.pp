@@ -7,7 +7,8 @@ class puppet {
     service { "puppet":
         enable => true,
         ensure => running,
-        require => Package["puppet"]
+        require => Package["puppet"],
+        noop => false
     }
 
     # TO be realized later, with templates and stuff
