@@ -19,7 +19,7 @@ module Puppet::Parser::Functions
                 ).map { |resource| resource.send(printtype) }
         else
             Puppet::Parser::Functions.autoloader.load(:query_resources) unless Puppet::Parser::Functions.autoloader.loaded?(:query_resources)
-            function_query_nodes(['environment="' + theEnvironment + '"', theRestype.to_s])
+            function_query_resources(['environment="' + theEnvironment + '"', theRestype.to_s])
         end
     end
 end
