@@ -1,5 +1,9 @@
 # Managed with puppet
 
+<%
+    puppet_vhosts = scope.function_query_nodes(['Webserver::Virtualhost["' + @fqdn + '"] and environment="' + @environment + '"', 'fqdn']).sort.uniq
+-%>
+
 <VirtualHost *:80>
     ServerAdmin sysadmin-puppet@<%= @domain %>
     ServerName puppet.<%= @domain %>
@@ -11,13 +15,18 @@
     RewriteRule ^/(.*)$ https://puppet.<%= @domain -%>/$1 [R,L]
 </VirtualHost>
 
+<%
+    if !puppet_vhosts.include?(@fqdn) then
+-%>
 <VirtualHost *:443>
     ServerAdmin sysadmin-main@<%= @domain %>
     ServerName puppet.<%= @domain %>
 
     ErrorLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-error_log -f -l /var/log/httpd/puppet.<%= @domain -%>-error_log.%Y-%m-%d 86400"
-    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-access_log -f -l /var/log/httpd/puppet.<%= @domain -%>-access_log.%Y-%m-%d 86400" combined
-    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-ssl_log -f -l /var/log/httpd/puppet.<%= @domain -%>-ssl_log.%Y-%m-%d 86400" "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b"
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-access_log -f -l /var/log/httpd/puppet.<%= @domain -%>-access_log.%Y-%m-%d 86400" combined env=!prx
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-access_log -f -l /var/log/httpd/puppet.<%= @domain -%>-access_log.%Y-%m-%d 86400" combined_prx env=prx
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-ssl_log -f -l /var/log/httpd/puppet.<%= @domain -%>-ssl_log.%Y-%m-%d 86400" "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b" env=!prx
+    CustomLog "|/usr/sbin/rotatelogs -L /var/log/httpd/puppet.<%= @domain -%>-ssl_log -f -l /var/log/httpd/puppet.<%= @domain -%>-ssl_log.%Y-%m-%d 86400" "%t %{X-Forwarded-For}i %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b" env=prx
 
     # you may want to tune these settings
     PassengerHighPerformance on
@@ -67,6 +76,9 @@
     </Location>
 
 </VirtualHost>
+<%
+    end
+-%>
 
 <VirtualHost *:3000>
     ServerAdmin sysadmin-main@<%= @domain %>
